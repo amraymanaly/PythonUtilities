@@ -61,7 +61,7 @@ def write_table(sort):
                     except IndexError:
                         f.write('<td></td>')
                         continue
-                    f.write('<td>%02d. %s\t<span class="mark">%.2f</span></td>' % (y+1, string.join(o.name.split()[:3]), o.marks[keys[x]]))
+                    f.write('<td><span class="rank">%02d</span>. <span class="name">%s</span><span class="mark">%.2f</span></td>' % (y+1, string.join(o.name.split()[:3]), o.marks[keys[x]]))
                 f.write('</tr>')
             f.write('</table>')
     elif options.fileformat == 'excel':
