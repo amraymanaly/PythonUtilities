@@ -8,7 +8,8 @@ import bs4, mechanize, argparse, string
 
 br = None
 options = None
-results = []
+results = set()
+keys = set()
 
 class Result:
     def __init__(self, grade, benchno):
@@ -34,6 +35,7 @@ class Result:
             # bound = int(line[-3 if subject != 'Total' else -4:-1])
             # self.marks[subject] = (mark, bound)
             self.marks[subject] = mark
+            keys.add(subject)
         # Finalizing ..
         br.back()
 
@@ -51,12 +53,13 @@ def write_table(sort):
             f.write('<link rel="stylesheet" href="tablestyle.css" /><table><tr>')
             for key in keys: f.write('<th>%s</th>' % key)
             f.write('</tr>')
-            for y in range(0, options.tops):
+            for y in range(0, options.tops if options.tops < len(results) else len(results)):
                 f.write('<tr>')
                 for x in range(0, len(keys)):
                     try:
                         o = sort[keys[x]][y]
                     except IndexError:
+                        f.write('<td></td>')
                         continue
                     f.write('<td>%02d. %s\t<span class="mark">%.2f</span></td>' % (y+1, string.join(o.name.split()[:3]), o.marks[keys[x]]))
                 f.write('</tr>')
@@ -75,17 +78,17 @@ def parse_args():
     options.grade = {'J1': '1', 'J2': '2', 'J3': '3', 'J4': '4', 'J5': '5', 'J6': '6', 'M1': '7', 'M2': '8', 'M3': '9', 'S1': '10', 'S2': '11'}.get(options.grade)
     return options
 
-def sort_results(results, keys):
+def sort_results(results):
     sorted_results = {}
     for key in keys:
-        sorted_results[key] = sorted(results, key=lambda result: result.marks[key], reverse=True)
+        sorted_results[key] = sorted([res for res in results if key in res.marks], key=lambda result: result.marks[key], reverse=True)
     return sorted_results
 
 if __name__ == '__main__':
     options = parse_args()
     br = mechanize.Browser()
-    br.open('http://new-sls.net/grades')
     print('Connecting ...')
+    br.open('http://new-sls.net/grades')
     for bench in options.benchnos:
-        results.append(Result(options.grade, bench))
-    write_table(sort_results(results, results[0].marks.keys()))
+        results.add(Result(options.grade, bench))
+    write_table(sort_results(results))
