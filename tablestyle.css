@@ -1,0 +1,38 @@
+table {
+  font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;
+  font-size: 13px;
+  width: 480px;
+  text-align: left;
+  border-collapse: collapse;
+}
+th {
+  font-family: "Proxima Nova Bold", "Segoe UI", Roboto, "Droid Sans", "Helvetica Neue", Arial, sans-serif;
+  font-style: oblique;
+  font-weight: 700;
+  color: rgb(0, 51, 153);
+  font-size: 13px;
+  background-color: rgb(185, 201, 254);
+  padding: 8px;
+}
+table td {
+  padding: 0.5em;
+  vertical-align: top;
+  background-color: rgb(232, 237, 255);
+  border-top-width: 1px;
+  border-top-style: solid;
+  border-top-color: rgb(255, 255, 255);
+  color: rgb(102, 102, 153);
+  padding: 11px;
+}
+table tbody tr:hover td {
+  background-color: rgb(208, 218, 253);
+}
+.mark {
+    color: #9400a3;
+    font-size: 13px;
+    font-style: oblique;
+    font-weight: bold;
+}
+.mark:hover {
+    color: green;
+}
