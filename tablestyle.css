@@ -36,3 +36,13 @@ table tbody tr:hover td {
 .mark:hover {
     color: green;
 }
+.name {
+    font-weight: bold;
+    color: #00008B;
+}
+.name:hover {
+    color: #000000;
+}
+.rank {
+    color: #00FF00;
+}
