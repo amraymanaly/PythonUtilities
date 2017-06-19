@@ -1,11 +1,7 @@
 #!/usr/bin/python2
 
-# TODO:
-#   1. Add Sqlite database support
-#   2. Add curses support
-
 from __future__ import print_function
-import bs4, mechanize, argparse, string, sys
+import bs4, mechanize, argparse, sqlite3, string, sys
 
 from openpyxl import Workbook
 
@@ -16,7 +12,8 @@ subjects = {}
 
 class Result:
     def __init__(self, grade, benchno):
-        print('Collecting %d ..' % benchno)
+        print('\rCollecting %d ..' % benchno, end='')
+        sys.stdout.flush()
         # POST stuff ..
         br.select_form(nr=1)
         br['grade'] = [grade]
@@ -79,7 +76,7 @@ def write_table(sort):
         wb = Workbook()
         wsl = wb.active
         x = 1
-        for subject in subjects:
+        for subject in sort:
             wsl.merge_cells(range_string='%s [%s]' % (subject, subjects[subject]), start_row=1, end_row=1, start_column=x, end_column=x+4)
             wsl.cell(row=2, column=x, value='Rank')
             wsl.merge_cells(range_string='Name', start_row=2, end_row=2, start_column=x+1, end_column=x+2)
@@ -90,15 +87,23 @@ def write_table(sort):
                 wsl.cell(row=i+2, column=x+4, value=o.marks[subject])
             x += 4
         wb.save(options.outfile)
-    else:
-        raise NotImplementedError()
+    elif options.fileformat == 'sqlite':
+        conn = sqlite3.connect(options.outfile.name)
+        c = conn.cursor()
+        c.execute('create table results (subject string, rank integer(3), name string, mark float(2))')
+        for subject in sort:
+            for i, o in enumerate(sort[subject], 1):
+                c.execute('INSERT INTO results VALUES (?,?,?,?)', (subject, i, o.name, o.marks[subject],))
+        conn.commit()
+        c.close()
+        conn.close()
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Ranks students' results", epilog='(C) 2017 -- Amr Ayman')
     parser.add_argument('grade', choices=['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'M1', 'M2', 'M3', 'S1', 'S2'], help="Student's grade. e.g: J3, M2, ..")
     parser.add_argument('outfile', help='Output file', type=argparse.FileType('w'))
     parser.add_argument('benchnos', nargs='+', type=int, help='Student bench numbers')
-    parser.add_argument('-f', default='html', choices=['html', 'text', 'excel', 'sqlite', 'curses'], help='Output file format', dest='fileformat')
+    parser.add_argument('-f', default='html', choices=['html', 'text', 'excel', 'sqlite'], help='Output file format', dest='fileformat')
     parser.add_argument( '--tops', default=10, type=int, help='How many tops ?')
     options = parser.parse_args()
     options.grade = {'J1': '1', 'J2': '2', 'J3': '3', 'J4': '4', 'J5': '5', 'J6': '6', 'M1': '7', 'M2': '8', 'M3': '9', 'S1': '10', 'S2': '11'}.get(options.grade)
@@ -125,4 +130,6 @@ if __name__ == '__main__':
             results.add(Result(options.grade, bench))
         except ValueError:
             print('Invalid Bench no: %s' % bench, file=sys.stderr)
+    print('\rCollected All!        ')
     write_table(sort_results(results))
+    print('Written!')
