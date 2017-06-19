@@ -18,7 +18,7 @@ class Result:
         br.select_form(nr=1)
         br['grade'] = [grade]
         br['beachno'] = str(benchno)
-        br.submit(timeout=20)
+        br.submit()
         # Extracting marks ..
         bs = bs4.BeautifulSoup(br.response().read(), 'lxml')
         info = bs.find(attrs={'class': 'table_cc'})
