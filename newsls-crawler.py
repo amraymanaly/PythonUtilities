@@ -18,7 +18,7 @@ class Result:
         br.select_form(nr=1)
         br['grade'] = [grade]
         br['beachno'] = str(benchno)
-        br.submit()
+        br.submit(timeout=20)
         # Extracting marks ..
         bs = bs4.BeautifulSoup(br.response().read(), 'lxml')
         info = bs.find(attrs={'class': 'table_cc'})
@@ -151,7 +151,7 @@ if __name__ == '__main__':
         options = parse_args()
         br = mechanize.Browser()
         p('Connecting ...')
-        br.open('http://new-sls.net/grades')
+        br.open('http://new-sls.net/grades', timeout=20)
         for bench in options.benchnos:
             try:
                 results.add(Result(options.grade, bench))
