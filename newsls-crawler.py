@@ -7,6 +7,7 @@ from openpyxl import Workbook
 
 br = None
 options = None
+sort = {}
 results = set()
 subjects = {}
 
@@ -47,62 +48,72 @@ class Result:
         # Finalizing ..
         br.back()
 
-def write_table(sort):
-    for fileformat in options.fileformats:
-        if fileformat == 'text':
-            with options.outfile as f:
+class Writer:
+    def _write_text(self):
+        with open(self.name, 'w') as f:
+            for subject in subjects:
+                f.write('%s [%d]:\n' % (subject, subjects[subject]))
+                for i, o in enumerate(sort[subject], 1):
+                    f.write('\t%02d. %-40s\t--->\t%.2f%s\n' % (i, o.name, o.marks[subject], "!!" if o.marks[subject] > subjects[subject] else ''))
+                    if i == options.tops: break
+
+    def _write_html(self):
+        with open(self.name, 'w') as f:
+            f.write('<link rel="stylesheet" href="tablestyle.css" /><table><tr>')
+            for subject in subjects: f.write('<th>%s [%d]</th>' % (subject, subjects[subject]))
+            f.write('</tr>')
+            for y in range(0, options.tops):
+                f.write('<tr>')
                 for subject in subjects:
-                    f.write('%s [%d]:\n' % (subject, subjects[subject]))
-                    for i, o in enumerate(sort[subject], 1):
-                        f.write('\t%02d. %-40s\t--->\t%.2f%s\n' % (i, o.name, o.marks[subject], "!!" if o.marks[subject] > subjects[subject] else ''))
-                        if i == options.tops: break
-        elif fileformat == 'html':
-            with options.outfile as f:
-                f.write('<link rel="stylesheet" href="tablestyle.css" /><table><tr>')
-                for subject in subjects: f.write('<th>%s [%d]</th>' % (subject, subjects[subject]))
-                f.write('</tr>')
-                for y in range(0, options.tops):
-                    f.write('<tr>')
-                    for subject in subjects:
-                        try:
-                            o = sort[subject][y]
-                        except IndexError:
-                            f.write('<td></td>')
-                            continue
-                        f.write('<td><span class="rank">%02d</span>. <span class="name">%s</span><span class="mark"> %.2f%s</span></td>' % (y+1, o.name, o.marks[subject], "!!" if o.marks[subject] > subjects[subject] else ''))
+                    try:
+                        o = sort[subject][y]
+                    except IndexError:
+                        f.write('<td></td>')
+                        continue
+                    f.write('<td><span class="rank">%02d</span>. <span class="name">%s</span><span class="mark"> %.2f%s</span></td>' % (y+1, o.name, o.marks[subject], "!!" if o.marks[subject] > subjects[subject] else ''))
                     f.write('</tr>')
-                f.write('</table>')
-        elif fileformat == 'excel':
-            wb = Workbook()
-            wsl = wb.active
-            x = 1
-            for subject in sort:
-                wsl.merge_cells(range_string='%s [%s]' % (subject, subjects[subject]), start_row=1, end_row=1, start_column=x, end_column=x+4)
-                wsl.cell(row=2, column=x, value='Rank')
-                wsl.merge_cells(range_string='Name', start_row=2, end_row=2, start_column=x+1, end_column=x+2)
-                wsl.cell(row=2, column=x+4, value='Mark')
-                for i, o in enumerate(sort[subject], 1):
-                    wsl.cell(row=i+2, column=x, value=i)
-                    wsl.merge_cells(range_string=o.name, start_row=i+2, end_row=i+2, start_column=x+1, end_column=x+2)
-                    wsl.cell(row=i+2, column=x+4, value=o.marks[subject])
-                x += 4
-            wb.save(options.outfile)
-        elif fileformat == 'sqlite':
-            conn = sqlite3.connect(options.outfile.name)
-            c = conn.cursor()
-            c.execute('create table results (subject string, rank integer(3), name string, mark float(2))')
-            for subject in sort:
-                for i, o in enumerate(sort[subject], 1):
-                    c.execute('INSERT INTO results VALUES (?,?,?,?)', (subject, i, o.name, o.marks[subject],))
-            conn.commit()
-            c.close()
-            conn.close()
-        print('Written in %s!' % fileformat)
+            f.write('</table>')
+
+    def _write_excel(self):
+        wb = Workbook()
+        wsl = wb.active
+        x = 1
+        for subject in sort:
+            wsl.merge_cells(range_string='%s [%s]' % (subject, subjects[subject]), start_row=1, end_row=1, start_column=x, end_column=x+4)
+            wsl.cell(row=2, column=x, value='Rank')
+            wsl.merge_cells(range_string='Name', start_row=2, end_row=2, start_column=x+1, end_column=x+2)
+            wsl.cell(row=2, column=x+4, value='Mark')
+            for i, o in enumerate(sort[subject], 1):
+                wsl.cell(row=i+2, column=x, value=i)
+                wsl.merge_cells(range_string=o.name, start_row=i+2, end_row=i+2, start_column=x+1, end_column=x+2)
+                wsl.cell(row=i+2, column=x+4, value=o.marks[subject])
+            x += 4
+        wb.save(self.name)
+
+    def _write_sqlite(self):
+        conn = sqlite3.connect(options.outfile + '.db')
+        c = conn.cursor()
+        c.execute('create table results (subject string, rank integer(3), name string, mark float(2))')
+        for subject in sort:
+            for i, o in enumerate(sort[subject], 1):
+                c.execute('INSERT INTO results VALUES (?,?,?,?)', (subject, i, o.name, o.marks[subject],))
+        conn.commit()
+        c.close()
+        conn.close()
+
+    def __init__(self, form, name):
+        self._write, self.name = {'text': (self._write_text, '.txt'), 'html': (self._write_html, '.html'), 'excel': (self._write_excel, '.xlsx'), 'sqlite': (self._write_sqlite, '.db')}.get(form)
+        self.name = name + self.name
+        self.form = form
+
+    def write(self):
+        self._write()
+        print('Written in %s [%s]!' % (self.form, self.name))
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Ranks students' results", epilog='(C) 2017 -- Amr Ayman')
     parser.add_argument('-g', '--grade', required=True, choices=['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'M1', 'M2', 'M3', 'S1', 'S2'], help="Student's grade. e.g: J3, M2, ..")
-    parser.add_argument('-o', '--outfile', required=True, help='Output file', type=argparse.FileType('w'))
+    parser.add_argument('-o', '--outfile', required=True, help='Output filename')
     parser.add_argument('benchnos', nargs='+', type=int, help='Student bench numbers')
     parser.add_argument('-f', default=['html'], nargs='+', choices=['html', 'text', 'excel', 'sqlite'], help='Output file format. You can specify multiple, e.g: -f html excel ..', dest='fileformats')
     parser.add_argument( '--tops', default=10, type=int, help='How many tops ?')
@@ -110,6 +121,7 @@ def parse_args():
     options.grade = {'J1': '1', 'J2': '2', 'J3': '3', 'J4': '4', 'J5': '5', 'J6': '6', 'M1': '7', 'M2': '8', 'M3': '9', 'S1': '10', 'S2': '11'}.get(options.grade)
     if options.tops > len(options.benchnos):
         options.tops = len(options.benchnos)
+    options.outs = [ Writer(f, options.outfile) for f in options.fileformats ]
     return options
 
 def sort_results(results):
@@ -136,4 +148,6 @@ if __name__ == '__main__':
         except ValueError:
             print('Invalid Bench no: %s' % bench, file=sys.stderr)
     print('\rCollected All!        ')
-    write_table(sort_results(results))
+
+    for writer in options.outs:
+        writer.write()
