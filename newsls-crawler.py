@@ -12,8 +12,7 @@ subjects = {}
 
 class Result:
     def __init__(self, grade, benchno):
-        print('\rCollecting %d ..' % benchno, end='')
-        sys.stdout.flush()
+        p('\rCollecting %d ..' % benchno)
         # POST stuff ..
         br.select_form(nr=1)
         br['grade'] = [grade]
@@ -50,7 +49,7 @@ class Result:
 
 def write_table(sort):
     for fileformat in options.fileformats:
-        if options.fileformat == 'text':
+        if fileformat == 'text':
             with options.outfile as f:
                 for subject in subjects:
                     f.write('%s [%d]:\n' % (subject, subjects[subject]))
@@ -118,14 +117,18 @@ def sort_results(results):
     for subject in subjects:
         sorted_results[subject] = sorted([res for res in results if subject in res.marks], key=lambda result: result.marks[subject], reverse=True)
         # No activity, pe shit ..
-        if sorted_results[subject][0] == sorted_results[subject][-1]:
+        if sorted_results[subject][0].marks[subject] == sorted_results[subject][-1].marks[subject]:
             sorted_results.pop(subject)
     return sorted_results
+
+def p(p):
+    print(p, end='')
+    sys.stdout.flush()
 
 if __name__ == '__main__':
     options = parse_args()
     br = mechanize.Browser()
-    print('Connecting ...')
+    p('Connecting ...')
     br.open('http://new-sls.net/grades')
     for bench in options.benchnos:
         try:
