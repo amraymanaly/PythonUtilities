@@ -100,10 +100,10 @@ def write_table(sort):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Ranks students' results", epilog='(C) 2017 -- Amr Ayman')
-    parser.add_argument('grade', choices=['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'M1', 'M2', 'M3', 'S1', 'S2'], help="Student's grade. e.g: J3, M2, ..")
-    parser.add_argument('outfile', help='Output file', type=argparse.FileType('w'))
+    parser.add_argument('-g', '--grade', required=True, choices=['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'M1', 'M2', 'M3', 'S1', 'S2'], help="Student's grade. e.g: J3, M2, ..")
+    parser.add_argument('-o', '--outfile', required=True, help='Output file', type=argparse.FileType('w'))
     parser.add_argument('benchnos', nargs='+', type=int, help='Student bench numbers')
-    parser.add_argument('-f', default='html', choices=['html', 'text', 'excel', 'sqlite'], help='Output file format', dest='fileformat')
+    parser.add_argument('-f', default='html', nargs='+', choices=['html', 'text', 'excel', 'sqlite'], help='Output file format. You can specify multiple, e.g: -f html excel ..', dest='fileformats')
     parser.add_argument( '--tops', default=10, type=int, help='How many tops ?')
     options = parser.parse_args()
     options.grade = {'J1': '1', 'J2': '2', 'J3': '3', 'J4': '4', 'J5': '5', 'J6': '6', 'M1': '7', 'M2': '8', 'M3': '9', 'S1': '10', 'S2': '11'}.get(options.grade)
