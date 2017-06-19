@@ -23,12 +23,15 @@ class Result:
         bs = bs4.BeautifulSoup(br.response().read(), 'lxml')
         info = bs.find(attrs={'class': 'table_cc'})
         if info is None:
+            br.back()
             raise ValueError()
         else:
             info = info.findAll('tr')
 
         self.name = str(info[0].contents[3].text).strip()
-        if self.name == '': raise ValueError()
+        if self.name == '':
+            br.back()
+            raise ValueError()
         n = self.name.split()[:3]
         if {'El': True, 'Al': True, 'Abdel': True, 'Abdul': True}.get(n[2], False):
             n = self.name.split()[:4]
@@ -49,6 +52,15 @@ class Result:
         br.back()
 
 class Writer:
+    def __init__(self, form, name):
+        self._write, self.name = {'text': (self._write_text, '.txt'), 'html': (self._write_html, '.html'), 'excel': (self._write_excel, '.xlsx'), 'sqlite': (self._write_sqlite, '.db')}.get(form)
+        self.name = name + self.name
+        self.form = form
+
+    def write(self):
+        self._write()
+        print('Written in %s [%s]!' % (self.form, self.name))
+
     def _write_text(self):
         with open(self.name, 'w') as f:
             for subject in subjects:
@@ -71,7 +83,7 @@ class Writer:
                         f.write('<td></td>')
                         continue
                     f.write('<td><span class="rank">%02d</span>. <span class="name">%s</span><span class="mark"> %.2f%s</span></td>' % (y+1, o.name, o.marks[subject], "!!" if o.marks[subject] > subjects[subject] else ''))
-                    f.write('</tr>')
+                f.write('</tr>')
             f.write('</table>')
 
     def _write_excel(self):
@@ -79,14 +91,17 @@ class Writer:
         wsl = wb.active
         x = 1
         for subject in sort:
-            wsl.merge_cells(range_string='%s [%s]' % (subject, subjects[subject]), start_row=1, end_row=1, start_column=x, end_column=x+4)
+            wsl.merge_cells(start_row=1, end_row=1, start_column=x, end_column=x+3)
+            wsl.cell(row=1, column=x, value='%s [%s]' % (subject, subjects[subject]))
             wsl.cell(row=2, column=x, value='Rank')
-            wsl.merge_cells(range_string='Name', start_row=2, end_row=2, start_column=x+1, end_column=x+2)
-            wsl.cell(row=2, column=x+4, value='Mark')
+            wsl.merge_cells(start_row=2, end_row=2, start_column=x+1, end_column=x+2)
+            wsl.cell(row=2, column=x+1, value='Name')
+            wsl.cell(row=2, column=x+3, value='Mark')
             for i, o in enumerate(sort[subject], 1):
                 wsl.cell(row=i+2, column=x, value=i)
-                wsl.merge_cells(range_string=o.name, start_row=i+2, end_row=i+2, start_column=x+1, end_column=x+2)
-                wsl.cell(row=i+2, column=x+4, value=o.marks[subject])
+                wsl.merge_cells(start_row=i+2, end_row=i+2, start_column=x+1, end_column=x+2)
+                wsl.cell(row=i+2, column=x+1, value=o.name)
+                wsl.cell(row=i+2, column=x+3, value=o.marks[subject])
             x += 4
         wb.save(self.name)
 
@@ -100,15 +115,6 @@ class Writer:
         conn.commit()
         c.close()
         conn.close()
-
-    def __init__(self, form, name):
-        self._write, self.name = {'text': (self._write_text, '.txt'), 'html': (self._write_html, '.html'), 'excel': (self._write_excel, '.xlsx'), 'sqlite': (self._write_sqlite, '.db')}.get(form)
-        self.name = name + self.name
-        self.form = form
-
-    def write(self):
-        self._write()
-        print('Written in %s [%s]!' % (self.form, self.name))
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Ranks students' results", epilog='(C) 2017 -- Amr Ayman')
@@ -126,11 +132,14 @@ def parse_args():
 
 def sort_results(results):
     sorted_results = {}
+    subs = []
     for subject in subjects:
         sorted_results[subject] = sorted([res for res in results if subject in res.marks], key=lambda result: result.marks[subject], reverse=True)
         # No activity, pe shit ..
         if sorted_results[subject][0].marks[subject] == sorted_results[subject][-1].marks[subject]:
             sorted_results.pop(subject)
+            subs.append(subject)
+    for s in subs: subjects.pop(s)
     return sorted_results
 
 def p(p):
@@ -138,16 +147,24 @@ def p(p):
     sys.stdout.flush()
 
 if __name__ == '__main__':
-    options = parse_args()
-    br = mechanize.Browser()
-    p('Connecting ...')
-    br.open('http://new-sls.net/grades')
-    for bench in options.benchnos:
-        try:
-            results.add(Result(options.grade, bench))
-        except ValueError:
-            print('Invalid Bench no: %s' % bench, file=sys.stderr)
-    print('\rCollected All!        ')
+    try:
+        options = parse_args()
+        br = mechanize.Browser()
+        p('Connecting ...')
+        br.open('http://new-sls.net/grades')
+        for bench in options.benchnos:
+            try:
+                results.add(Result(options.grade, bench))
+            except ValueError:
+                print('Invalid Bench no: %s' % bench, file=sys.stderr)
+        print('\rCollected All!        ')
 
-    for writer in options.outs:
-        writer.write()
+        sort = sort_results(results)
+        for writer in options.outs:
+            try:
+                writer.write()
+            except Exception as e:
+                print(e.message)
+    except KeyboardInterrupt:
+        print('\nExiting ..', file=sys.stderr)
+        sys.exit(1)
