@@ -4,15 +4,18 @@ table {
   width: 480px;
   text-align: left;
   border-collapse: collapse;
+  /*border-spacing: 1;*/
+}
+* {
+    font-family: "Proxima Nova Bold", "Segoe UI", Roboto, "Droid Sans", "Helvetica Neue", Arial, sans-serif;
 }
 th {
-  font-family: "Proxima Nova Bold", "Segoe UI", Roboto, "Droid Sans", "Helvetica Neue", Arial, sans-serif;
   font-style: oblique;
-  font-weight: 700;
   color: rgb(0, 51, 153);
-  font-size: 13px;
+  font-size: 15px;
   background-color: rgb(185, 201, 254);
   padding: 8px;
+  text-align: center;
 }
 table td {
   padding: 0.5em;
@@ -22,7 +25,7 @@ table td {
   border-top-style: solid;
   border-top-color: rgb(255, 255, 255);
   color: rgb(102, 102, 153);
-  padding: 11px;
+  padding: 9px;
 }
 table tbody tr:hover td {
   background-color: rgb(208, 218, 253);
@@ -44,5 +47,5 @@ table tbody tr:hover td {
     color: #000000;
 }
 .rank {
-    color: #00FF00;
+    color: #9932CC;
 }
