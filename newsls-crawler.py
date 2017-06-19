@@ -39,15 +39,16 @@ class Result:
 
         self.marks = {}
         for row in info[1:]:
-            if len(row.contents) != 5: continue
+            l = len(row.contents)
+            if l < 5: continue
             line = str(row.contents[1].text).strip()
-            subject = line[:-5].rstrip()
+            subject = line[:-5].rstrip() if l == 5 else line.encode()
             try:
-                mark = float(row.contents[3].text)
+                mark = float(row.contents[3].text if l == 5 else row.contents[3].text[:-1])
             except:
                 continue
             self.marks[subject] = mark
-            subjects[subject] = int(line[-3 if subject != 'Total' else -4:-1])
+            subjects[subject] = int(line[-3 if subject != 'Total' else -4:-1]) if l == 5 else 100
         # Finalizing ..
         br.back()
 
@@ -102,6 +103,7 @@ class Writer:
                 wsl.merge_cells(start_row=i+2, end_row=i+2, start_column=x+1, end_column=x+2)
                 wsl.cell(row=i+2, column=x+1, value=o.name)
                 wsl.cell(row=i+2, column=x+3, value=o.marks[subject])
+                if i == options.tops: break
             x += 4
         wb.save(self.name)
 
