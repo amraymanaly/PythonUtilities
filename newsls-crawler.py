@@ -28,6 +28,7 @@ class Result:
         else:
             info = info.findAll('tr')
 
+        # Formatting name
         self.name = str(info[0].contents[3].text).strip()
         if self.name == '':
             br.back()
@@ -76,6 +77,7 @@ class Writer:
             for subject in subjects: f.write('<th>%s [%d]</th>' % (subject, subjects[subject]))
             f.write('</tr>')
             for y in range(0, options.tops):
+                # Yeah, row by row. cuz fuck html ..
                 f.write('<tr>')
                 for subject in subjects:
                     try:
@@ -108,7 +110,7 @@ class Writer:
         wb.save(self.name)
 
     def _write_sqlite(self):
-        conn = sqlite3.connect(options.outfile + '.db')
+        conn = sqlite3.connect(self.name)
         c = conn.cursor()
         c.execute('create table results (subject string, rank integer(3), name string, mark float(2))')
         for subject in sort:
@@ -137,7 +139,7 @@ def sort_results(results):
     subs = []
     for subject in subjects:
         sorted_results[subject] = sorted([res for res in results if subject in res.marks], key=lambda result: result.marks[subject], reverse=True)
-        # No activity, pe shit ..
+        # No activity, PE shit ..
         if sorted_results[subject][0].marks[subject] == sorted_results[subject][-1].marks[subject]:
             sorted_results.pop(subject)
             subs.append(subject)
