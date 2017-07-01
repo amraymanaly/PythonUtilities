@@ -1,13 +1,35 @@
 #!/usr/bin/python2
 
 from __future__ import print_function
-import bs4, mechanize, argparse, sqlite3, string, json, sys
+import bs4, mechanize, argparse, sqlite3, string, json, sys, time
 
 from openpyxl import Workbook
+from functools import wraps
+from urllib2 import URLError
 
+br = None
 subjects = {}
 
+# So we can retry when the connection fails
+def retry(exceptions, tries=4, delay=3, backoff=2):
+    def deco_retry(f):
+        @wraps(f)
+        def f_retry(*args, **kwargs):
+            mtries, mdelay = tries, delay
+            while mtries > 1:
+                try: return f(*args, **kwargs)
+                except exceptions, e:
+                    print("%s, Retrying in %d seconds .." % (str(e), mdelay), file=sys.stderr)
+                    time.sleep(mdelay)
+                    mtries -= 1
+                    mdelay *= backoff
+            return f(*args, **kwargs)
+        return f_retry
+    return deco_retry
+
+
 class Result:
+    @retry(URLError)
     def __init__(self, grade, benchno):
         try:
             p('\rCollecting %d ..' % benchno)
@@ -31,8 +53,8 @@ class Result:
             if {'El': True, 'Al': True, 'Abdel': True, 'Abdul': True}.get(n[2], False):
                 n = self.name.split()[:4]
             self.name = string.join(n)
-            # Collecting marks
             self.marks = {}
+            # Collecting marks
             for row in info[1:]:
                 l = len(row.contents)
                 if l < 5: continue
@@ -166,13 +188,18 @@ def p(p):
     print(p, end='')
     sys.stdout.flush()
 
+@retry(mechanize.BrowserStateError)
+def initBrowser():
+    global br
+    br = mechanize.Browser()
+    p('Connecting ...')
+    br.open('http://new-sls.net/grades', timeout=20)
+
 if __name__ == '__main__':
     try:
         results = {}
         options = parse_args()
-        br = mechanize.Browser()
-        p('Connecting ...')
-        br.open('http://new-sls.net/grades', timeout=20)
+        initBrowser()
         for bench in options.benchnos:
             try:
                 res = Result(options.grade, bench)
