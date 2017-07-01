@@ -206,10 +206,13 @@ if __name__ == '__main__':
                 results[res.benchno] = res
             except ValueError:
                 print('Invalid Bench no: %s' % bench, file=sys.stderr)
+            except AttributeError:
+                print('Malformed Bench: %d, ignoring ..' % bench, file=sys.stderr)
         print('\rCollected All!        ')
         # Let the sorting commence!
         sorts = [sort_results(results.values())]
-        sorts.append(sort_results([results[no] for l in options.seperate for no in l if no in results]))
+        for l in options.seperate:
+            sorts.append(sort_results([results[no] for no in l if no in results]))
         for sort in sorts:
             if len(sort) == 0: continue
             # Yeah, we'll pop as we go, cuz i've ran out of creative solutions
