@@ -5,8 +5,6 @@ import bs4, mechanize, argparse, sqlite3, string, json, sys
 
 from openpyxl import Workbook
 
-sort = {}
-results = set()
 subjects = {}
 
 class Result:
@@ -48,6 +46,8 @@ class Result:
                 if subject not in subjects: subjects[subject] = int(line[-3 if subject != 'Total' else -4:-1]) if l == 5 else 100
                 # Assigning mark to student
                 self.marks[subject] = 'N/A' if mark > subjects[subject] else '%.2f' % mark
+                # Assign id to student
+                self.benchno = benchno
         except ValueError:
             raise ValueError()
         finally:
@@ -59,11 +59,11 @@ class Writer:
         self.name = name + self.name
         self.form = form
 
-    def write(self):
-        self._write()
+    def write(self, sort):
+        self._write(sort)
         print('Written in %s [%s]!' % (self.form, self.name))
 
-    def _write_json(self):
+    def _write_json(self, sort):
         d = {}
         for subject in subjects:
             d[subject] = {}
@@ -74,14 +74,14 @@ class Writer:
         with open(self.name, 'w') as f:
             json.dump(d, f)
 
-    def _write_text(self):
+    def _write_text(self, sort):
         with open(self.name, 'w') as f:
             for subject in subjects:
                 f.write('%s [%d]:\n' % (subject, subjects[subject]))
                 for o, i in zip(sort[subject], range(1, options.tops+1)):
                     f.write('\t%02d. %-40s\t--->\t%s\n' % (i, o.name, o.marks[subject]))
 
-    def _write_html(self):
+    def _write_html(self, sort):
         with open(self.name, 'w') as f:
             f.write('<link rel="stylesheet" href="tablestyle.css" /><table><tr>')
             for subject in subjects: f.write('<th>%s [%d]</th>' % (subject, subjects[subject]))
@@ -99,7 +99,7 @@ class Writer:
                 f.write('</tr>')
             f.write('</table>')
 
-    def _write_excel(self):
+    def _write_excel(self, sort):
         wb = Workbook()
         wsl = wb.active
         x = 1
@@ -118,7 +118,7 @@ class Writer:
             x += 4
         wb.save(self.name)
 
-    def _write_sqlite(self):
+    def _write_sqlite(self, sort):
         conn = sqlite3.connect(self.name)
         c = conn.cursor()
         c.execute('create table results (subject string, rank integer(3), name string, mark float(2))')
@@ -136,11 +136,17 @@ def parse_args():
     parser.add_argument('benchnos', nargs='+', type=int, help='Student bench numbers')
     parser.add_argument('-f', default=['html'], nargs='+', choices=['html', 'text', 'excel', 'sqlite', 'json'], help='Output file format. You can specify multiple, e.g: -f html excel ..', dest='fileformats')
     parser.add_argument( '--tops', default=10, type=int, help='How many tops ?')
+    parser.add_argument('-s', '--seperate', default=[], type=int, nargs='+', help='Seperate these numbers', action='append')
     options = parser.parse_args()
+    # Remove duplicates
+    options.benchnos = set(options.benchnos)
+    options.fileformats = set(options.fileformats)
+    for i in range(len(options.seperate)):
+        options.seperate[i] = set(options.seperate[i])
+    # Options stuff ...
     options.grade = {'J1': '1', 'J2': '2', 'J3': '3', 'J4': '4', 'J5': '5', 'J6': '6', 'M1': '7', 'M2': '8', 'M3': '9', 'S1': '10', 'S2': '11'}.get(options.grade)
-    if options.tops > len(options.benchnos):
-        options.tops = len(options.benchnos)
     options.outs = [ Writer(f, options.outfile) for f in options.fileformats ]
+    options.outs += [ Writer(f, '%s-%d' % (options.outfile, i)) for i in range(1, len(options.seperate)+1) for f in options.fileformats ]
     return options
 
 def sort_results(results):
@@ -149,7 +155,7 @@ def sort_results(results):
     for subject in subjects:
         sorted_results[subject] = sorted([res for res in results if subject in res.marks], key=lambda result: result.marks[subject], reverse=True)
         # No activity, PE shit ..
-        if sorted_results[subject][0].marks[subject] == sorted_results[subject][-1].marks[subject]:
+        if len(results) > 1 and sorted_results[subject][0].marks[subject] == sorted_results[subject][-1].marks[subject]:
             sorted_results.pop(subject)
             # Cuz a list can't change its size while in a loop .. lame ..
             subs.append(subject)
@@ -162,23 +168,30 @@ def p(p):
 
 if __name__ == '__main__':
     try:
+        results = {}
         options = parse_args()
         br = mechanize.Browser()
         p('Connecting ...')
         br.open('http://new-sls.net/grades', timeout=20)
         for bench in options.benchnos:
             try:
-                results.add(Result(options.grade, bench))
+                res = Result(options.grade, bench)
+                results[res.benchno] = res
             except ValueError:
                 print('Invalid Bench no: %s' % bench, file=sys.stderr)
         print('\rCollected All!        ')
         # Let the sorting commence!
-        sort = sort_results(results)
-        for writer in options.outs:
-            try:
-                writer.write()
-            except Exception as e:
-                print(e.message)
+        sorts = [sort_results(results.values())]
+        sorts.append(sort_results([results[no] for l in options.seperate for no in l if no in results]))
+        for sort in sorts:
+            if len(sort) == 0: continue
+            # Yeah, we'll pop as we go, cuz i've ran out of creative solutions
+            for i in options.fileformats:
+                try:
+                    options.outs[0].write(sort)
+                except Exception as e:
+                    print(e.message)
+                options.outs.pop(0)
     except KeyboardInterrupt:
         print('\nExiting ..', file=sys.stderr)
         sys.exit(1)
