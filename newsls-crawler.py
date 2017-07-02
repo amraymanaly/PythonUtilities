@@ -182,7 +182,7 @@ def sort_results(results):
     sorted_results = {}
     subs = []
     for subject in subjects:
-        sorted_results[subject] = sorted([res for res in results if subject in res.marks], key=lambda result: result.marks[subject], reverse=True)
+        sorted_results[subject] = sorted([res for res in results if subject in res.marks], key=lambda result: 0 if results.marks[subject] == 'N/A' else result.marks[subject], reverse=True)
         # No activity, PE shit ..
         if len(results) > 1 and sorted_results[subject][0].marks[subject] == sorted_results[subject][-1].marks[subject]:
             sorted_results.pop(subject)
