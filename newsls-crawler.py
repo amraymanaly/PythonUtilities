@@ -1,5 +1,12 @@
 #!/usr/bin/python2
 
+# Saves students results and ranks them from http://new-sls.net/grades
+
+# Usage examples:
+#   - ./newsls-crawler -g S2 -f html -o s2-results {20001..20023} --> saves S2 results in s2-results.html of benchnos from 20001 to 20023
+#   - ./newsls-crawler -g J3 -f excel sqlite -o j3-results {450..491} -s {450..466} -s {467..491} --> saves J3 results in j3-results.xlsx and j3-results.html for benchnos 450 to 491. Also saves  results from 450 to 466 seperately in j3-results-1.xlsx and j3-results-1.db, same for 467 to 491 in j3-results-2.xlsx and j3-results-2.db
+
+
 from __future__ import print_function
 import bs4, mechanize, argparse, sqlite3, string, json, sys, time
 
