@@ -13,19 +13,21 @@ import bs4, mechanize, argparse, sqlite3, string, json, sys, time
 from openpyxl import Workbook
 from functools import wraps
 from urllib2 import URLError
+from socket import timeout
 
 br = None
 subjects = {}
+net_errors = (URLError, mechanize.BrowserStateError, timeout)
 
 # So we can retry when the connection fails
-def retry(exceptions, tries=4, delay=3, backoff=2):
+def retry(tries=4, delay=3, backoff=2):
     def deco_retry(f):
         @wraps(f)
         def f_retry(*args, **kwargs):
             mtries, mdelay = tries, delay
             while mtries > 1:
                 try: return f(*args, **kwargs)
-                except exceptions, e:
+                except net_errors, e:
                     print("%s, Retrying in %d seconds .." % (str(e), mdelay), file=sys.stderr)
                     time.sleep(mdelay)
                     mtries -= 1
@@ -36,7 +38,7 @@ def retry(exceptions, tries=4, delay=3, backoff=2):
 
 
 class Result:
-    @retry(URLError)
+    @retry()
     def __init__(self, grade, benchno):
         try:
             p('\rCollecting %d ..' % benchno)
@@ -208,7 +210,7 @@ def p(p):
     print(p, end='')
     sys.stdout.flush()
 
-@retry(mechanize.BrowserStateError)
+@retry()
 def initBrowser():
     global br
     br = mechanize.Browser()
@@ -244,4 +246,7 @@ if __name__ == '__main__':
                 options.outs.pop(0)
     except KeyboardInterrupt:
         print('\nExiting ..', file=sys.stderr)
+        sys.exit(1)
+    except net_errors:
+        print('\nConnection Error!', file=sys.stderr)
         sys.exit(1)
