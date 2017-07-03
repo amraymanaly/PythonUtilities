@@ -88,6 +88,7 @@ def m(mark):
     return 'N/A' if mark == 'N/A' else '%.2f' % mark
 
 class Writer:
+    _db = 0
     def __init__(self, form, name):
         self._write, self.name = {'text': (self._write_text, '.txt'), 'html': (self._write_html, '.html'), 'excel': (self._write_excel, '.xlsx'), 'sqlite': (self._write_sqlite, '.db'), 'json': (self._write_json, '.json')}.get(form)
         self.name = name + self.name
@@ -120,7 +121,7 @@ class Writer:
             f.write('<link rel="stylesheet" href="tablestyle.css" /><table><tr>')
             for subject in sort: f.write('<th>%s [%d]</th>' % (subject, subjects[subject]))
             f.write('</tr>')
-            for y in range(0, options.tops if options.tops < len(sort) else len(sort)):
+            for y in range(0, max([len(l) for l in sort.values()])):
                 # Yeah, row by row. cuz fuck html ..
                 f.write('<tr>')
                 for subject in sort:
@@ -155,12 +156,14 @@ class Writer:
         wb.save(self.name)
 
     def _write_sqlite(self, sort):
+        Writer._db +=1
+        # Databases are special. Don't create many files, just many tables in one file.
         conn = sqlite3.connect(self.name)
         c = conn.cursor()
-        c.execute('create table results (subject string, rank integer(3), benchno string, name string, mark float(2)), top int(3)')
+        c.execute('create table results_%d (subject string, rank integer(3), benchno string, name string, mark float(2), top int(3))' % Writer._db)
         for subject in sort:
             for o, i in zip(sort[subject], range(1, options.tops+1)):
-                c.execute('insert into results values (?,?,?,?,?,?)', subject, i, o.benchno, o.name, m(o.marks[subject]), subjects[subject])
+                c.execute('insert into results_%d values (?,?,?,?,?,?)' % Writer._db, (subject, i, o.benchno, o.name, m(o.marks[subject]), subjects[subject]))
         conn.commit()
         c.close()
         conn.close()
@@ -183,7 +186,12 @@ def parse_args():
     # Options stuff ...
     options.grade = {'J1': '1', 'J2': '2', 'J3': '3', 'J4': '4', 'J5': '5', 'J6': '6', 'M1': '7', 'M2': '8', 'M3': '9', 'S1': '10', 'S2': '11'}.get(options.grade)
     options.outs = [ Writer(f, options.outfile) for f in options.fileformats ]
-    options.outs += [ Writer(f, '%s-%d' % (options.outfile, i)) for i in range(1, len(options.seperate)+1) for f in options.fileformats ]
+    for i in range(1, len(options.seperate)+1):
+        for f in options.fileformats:
+            if f == 'sqlite':
+                options.outs.append(Writer(f, options.outfile))
+            else:
+                options.outs.append(Writer(f, '%s-%d' % (options.outfile, i)))
     return options
 
 def sort_results(results):
