@@ -57,8 +57,10 @@ class Result:
             if self.name == '':
                 raise ValueError()
             n = self.name.split()[:3]
-            if {'El': True, 'Al': True, 'Abdel': True, 'Abdul': True}.get(n[2], False):
-                n = self.name.split()[:4]
+            c = 4
+            while n[c-2] in ['El', 'Al', 'Abdel', 'Abdul', 'Abo', 'Abou']:
+                n = self.name.split()[:c]
+                c += 1
             self.name = string.join(n)
             self.marks = {}
             # Collecting marks
@@ -74,13 +76,16 @@ class Result:
                 # Noting subject and its top mark
                 if subject not in subjects: subjects[subject] = int(line[-3 if subject != 'Total' else -4:-1]) if l == 5 else 100
                 # Assigning mark to student
-                self.marks[subject] = 'N/A' if mark > subjects[subject] else '%.2f' % mark
+                self.marks[subject] = 'N/A' if mark > subjects[subject] or mark < 0 else mark
                 # Assign id to student
                 self.benchno = benchno
         except ValueError:
             raise ValueError()
         finally:
             br.back()
+
+def m(mark):
+    return 'N/A' if mark == 'N/A' else '%.2f' % mark
 
 class Writer:
     def __init__(self, form, name):
@@ -94,37 +99,37 @@ class Writer:
 
     def _write_json(self, sort):
         d = {}
-        for subject in subjects:
+        for subject in sort:
             d[subject] = {}
             d[subject]['tops'] = subjects[subject]
             for o, i in zip(sort[subject], range(1, options.tops+1)):
-                d[subject][i] = {'name': o.name, 'mark': o.marks[subject]}
+                d[subject][i] = {'name': o.name, 'mark': m(o.marks[subject]), 'benchno': o.benchno}
 
         with open(self.name, 'w') as f:
             json.dump(d, f)
 
     def _write_text(self, sort):
         with open(self.name, 'w') as f:
-            for subject in subjects:
+            for subject in sort:
                 f.write('%s [%d]:\n' % (subject, subjects[subject]))
                 for o, i in zip(sort[subject], range(1, options.tops+1)):
-                    f.write('\t%02d. %-40s\t--->\t%s\n' % (i, o.name, o.marks[subject]))
+                    f.write('\t%02d. %-40s\t--->\t%s\n' % (i, o.name, m(o.marks[subject])))
 
     def _write_html(self, sort):
         with open(self.name, 'w') as f:
             f.write('<link rel="stylesheet" href="tablestyle.css" /><table><tr>')
-            for subject in subjects: f.write('<th>%s [%d]</th>' % (subject, subjects[subject]))
+            for subject in sort: f.write('<th>%s [%d]</th>' % (subject, subjects[subject]))
             f.write('</tr>')
-            for y in range(0, options.tops):
+            for y in range(0, options.tops if options.tops < len(sort) else len(sort)):
                 # Yeah, row by row. cuz fuck html ..
                 f.write('<tr>')
-                for subject in subjects:
+                for subject in sort:
                     try:
                         o = sort[subject][y]
                     except IndexError:
                         f.write('<td></td>')
                         continue
-                    f.write('<td><span class="rank">%02d</span>. <span class="name">%s</span><span class="mark"> %s</span></td>' % (y+1, o.name, o.marks[subject]))
+                    f.write('<td><span class="rank">%02d</span>. <span class="name">%s</span><span class="mark"> %s</span></td>' % (y+1, o.name, m(o.marks[subject])))
                 f.write('</tr>')
             f.write('</table>')
 
@@ -133,33 +138,36 @@ class Writer:
         wsl = wb.active
         x = 1
         for subject in sort:
-            wsl.merge_cells(start_row=1, end_row=1, start_column=x, end_column=x+3)
+            wsl.merge_cells(start_row=1, end_row=1, start_column=x, end_column=x+4)
             wsl.cell(row=1, column=x, value='%s [%s]' % (subject, subjects[subject]))
             wsl.cell(row=2, column=x, value='Rank')
             wsl.merge_cells(start_row=2, end_row=2, start_column=x+1, end_column=x+2)
             wsl.cell(row=2, column=x+1, value='Name')
             wsl.cell(row=2, column=x+3, value='Mark')
+            wsl.cell(row=2, column=x+4, value='BenchNo')
             for o, i in zip(sort[subject], range(1, options.tops+1)):
                 wsl.cell(row=i+2, column=x, value=i)
                 wsl.merge_cells(start_row=i+2, end_row=i+2, start_column=x+1, end_column=x+2)
                 wsl.cell(row=i+2, column=x+1, value=o.name)
-                wsl.cell(row=i+2, column=x+3, value=o.marks[subject])
-            x += 4
+                wsl.cell(row=i+2, column=x+3, value=m(o.marks[subject]))
+                wsl.cell(row=i+2, column=x+4, value=o.benchno)
+            x += 5
         wb.save(self.name)
 
     def _write_sqlite(self, sort):
         conn = sqlite3.connect(self.name)
         c = conn.cursor()
-        c.execute('create table results (subject string, rank integer(3), name string, mark float(2))')
+        c.execute('create table results (subject string, rank integer(3), benchno string, name string, mark float(2)), top int(3)')
         for subject in sort:
             for o, i in zip(sort[subject], range(1, options.tops+1)):
-                c.execute('insert into results values (?,?,?,?)', ('%s [%d]' % (subject, subjects[subject]), i, o.name, o.marks[subject],))
+                c.execute('insert into results values (?,?,?,?,?,?)', subject, i, o.benchno, o.name, m(o.marks[subject]), subjects[subject])
         conn.commit()
         c.close()
         conn.close()
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Ranks students' results", epilog='(C) 2017 -- Amr Ayman')
+
     parser.add_argument('-g', '--grade', required=True, choices=['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'M1', 'M2', 'M3', 'S1', 'S2'], help="Student's grade. e.g: J3, M2, ..")
     parser.add_argument('-o', '--outfile', required=True, help='Output filename')
     parser.add_argument('benchnos', nargs='+', type=int, help='Student bench numbers')
@@ -180,15 +188,12 @@ def parse_args():
 
 def sort_results(results):
     sorted_results = {}
-    subs = []
     for subject in subjects:
-        sorted_results[subject] = sorted([res for res in results if subject in res.marks], key=lambda result: 0 if results.marks[subject] == 'N/A' else result.marks[subject], reverse=True)
+        sorted_results[subject] = [res for res in results if subject in res.marks]
+        sorted_results[subject].sort(key=lambda res: 0 if res.marks[subject] == 'N/A' else res.marks[subject], reverse=True)
         # No activity, PE shit ..
         if len(results) > 1 and sorted_results[subject][0].marks[subject] == sorted_results[subject][-1].marks[subject]:
             sorted_results.pop(subject)
-            # Cuz a list can't change its size while in a loop .. lame ..
-            subs.append(subject)
-    for s in subs: subjects.pop(s)
     return sorted_results
 
 def p(p):
