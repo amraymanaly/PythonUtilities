@@ -3,8 +3,12 @@
 # Saves students results and ranks them from http://new-sls.net/grades
 
 # Usage examples:
-#   - ./newsls-crawler -g S2 -f html -o s2-results {20001..20023} --> saves S2 results in s2-results.html of benchnos from 20001 to 20023
-#   - ./newsls-crawler -g J3 -f excel sqlite -o j3-results {450..491} -s {450..466} -s {467..491} --> saves J3 results in j3-results.xlsx and j3-results.html for benchnos 450 to 491. Also saves  results from 450 to 466 seperately in j3-results-1.xlsx and j3-results-1.db, same for 467 to 491 in j3-results-2.xlsx and j3-results-2.db
+#   - ./newsls-crawler.py -g S2 -f html -o s2-results {20001..20023} --> saves S2 results in
+#       s2-results.html of benchnos from 20001 to 20023
+#   - ./newsls-crawler.py -g J3 -f excel sqlite -o j3-results {450..491} -s {450..466} -s {467..491} --> saves
+#       J3 results in j3-results.xlsx and j3-results.html for benchnos 450 to 491.
+#       Also saves  results from 450 to 466 seperately in j3-results-1.xlsx and j3-results-1.db,
+#       same for 467 to 491 in j3-results-2.xlsx and j3-results-2.db
 
 
 from __future__ import print_function
@@ -76,13 +80,12 @@ class Result:
                 except:
                     continue
                 # Noting subject and its top mark
-                if subject not in subjects: subjects[subject] = int(line[-3 if subject != 'Total' else -4:-1]) if l == 5 else 100
+                if subject not in subjects:
+                    subjects[subject] = int(line[-3 if subject != 'Total' else -4:-1]) if l == 5 else 100
                 # Assigning mark to student
                 self.marks[subject] = 'N/A' if mark > subjects[subject] or mark < 0 else mark
                 # Assign id to student
                 self.benchno = benchno
-        except ValueError:
-            raise ValueError()
         finally:
             br.back()
 
@@ -92,7 +95,9 @@ def m(mark):
 class Writer:
     _db = 0
     def __init__(self, form, name):
-        self._write, self.name = {'text': (self._write_text, '.txt'), 'html': (self._write_html, '.html'), 'excel': (self._write_excel, '.xlsx'), 'sqlite': (self._write_sqlite, '.db'), 'json': (self._write_json, '.json')}.get(form)
+        self._write, self.name = {'text': (self._write_text, '.txt'), 'html': (self._write_html, '.html'),
+            'excel': (self._write_excel, '.xlsx'), 'sqlite': (self._write_sqlite, '.db'),
+            'json': (self._write_json, '.json')}.get(form)
         self.name = name + self.name
         self.form = form
 
@@ -132,7 +137,8 @@ class Writer:
                     except IndexError:
                         f.write('<td></td>')
                         continue
-                    f.write('<td><span class="rank">%02d</span>. <span class="name">%s</span><span class="mark"> %s</span></td>' % (y+1, o.name, m(o.marks[subject])))
+                    f.write('<td><span class="rank">%02d</span>. <span class="name">%s</span><span \
+class="mark"> %s</span></td>' % (y+1, o.name, m(o.marks[subject])))
                 f.write('</tr>')
             f.write('</table>')
 
@@ -162,10 +168,12 @@ class Writer:
         # Databases are special. Don't create many files, just many tables in one file.
         conn = sqlite3.connect(self.name)
         c = conn.cursor()
-        c.execute('create table results_%d (subject string, rank integer(3), benchno string, name string, mark float(2), top int(3))' % Writer._db)
+        c.execute('create table results_%d (subject string, rank integer(3),\
+benchno string, name string, mark float(2), top int(3))' % Writer._db)
         for subject in sort:
             for o, i in zip(sort[subject], range(1, options.tops+1)):
-                c.execute('insert into results_%d values (?,?,?,?,?,?)' % Writer._db, (subject, i, o.benchno, o.name, m(o.marks[subject]), subjects[subject]))
+                c.execute('insert into results_%d values (?,?,?,?,?,?)' % Writer._db,
+                (subject, i, o.benchno, o.name, m(o.marks[subject]), subjects[subject]))
         conn.commit()
         c.close()
         conn.close()
@@ -173,12 +181,17 @@ class Writer:
 def parse_args():
     parser = argparse.ArgumentParser(description="Ranks students' results", epilog='(C) 2017 -- Amr Ayman')
 
-    parser.add_argument('-g', '--grade', required=True, choices=['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'M1', 'M2', 'M3', 'S1', 'S2'], help="Student's grade. e.g: J3, M2, ..")
+    parser.add_argument('-g', '--grade', required=True,
+        choices=['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'M1', 'M2', 'M3', 'S1', 'S2'],
+        help="Student's grade. e.g: J3, M2, ..")
     parser.add_argument('-o', '--outfile', required=True, help='Output filename')
     parser.add_argument('benchnos', nargs='+', type=int, help='Student bench numbers')
-    parser.add_argument('-f', default=['html'], nargs='+', choices=['html', 'text', 'excel', 'sqlite', 'json'], help='Output file format. You can specify multiple, e.g: -f html excel ..', dest='fileformats')
+    parser.add_argument('-f', default=['html'], nargs='+',
+        choices=['html', 'text', 'excel', 'sqlite', 'json'],
+        help='Output file format. You can specify multiple, e.g: -f html excel ..', dest='fileformats')
     parser.add_argument( '--tops', default=10, type=int, help='How many tops ?')
-    parser.add_argument('-s', '--seperate', default=[], type=int, nargs='+', help='Seperate these numbers', action='append')
+    parser.add_argument('-s', '--seperate', default=[], type=int, nargs='+',
+        help='Seperate these numbers', action='append')
     options = parser.parse_args()
     # Remove duplicates
     options.benchnos = set(options.benchnos)
@@ -186,7 +199,9 @@ def parse_args():
     for i in range(len(options.seperate)):
         options.seperate[i] = set(options.seperate[i])
     # Options stuff ...
-    options.grade = {'J1': '1', 'J2': '2', 'J3': '3', 'J4': '4', 'J5': '5', 'J6': '6', 'M1': '7', 'M2': '8', 'M3': '9', 'S1': '10', 'S2': '11'}.get(options.grade)
+    options.grade = {
+        'J1': '1', 'J2': '2', 'J3': '3', 'J4': '4', 'J5': '5', 'J6': '6',
+        'M1': '7', 'M2': '8', 'M3': '9', 'S1': '10', 'S2': '11'}.get(options.grade)
     options.outs = [ Writer(f, options.outfile) for f in options.fileformats ]
     for i in range(1, len(options.seperate)+1):
         for f in options.fileformats:
@@ -200,9 +215,11 @@ def sort_results(results):
     sorted_results = {}
     for subject in subjects:
         sorted_results[subject] = [res for res in results if subject in res.marks]
-        sorted_results[subject].sort(key=lambda res: 0 if res.marks[subject] == 'N/A' else res.marks[subject], reverse=True)
+        sorted_results[subject].sort(
+            key=lambda res: 0 if res.marks[subject] == 'N/A' else res.marks[subject], reverse=True)
         # No activity, PE shit ..
-        if len(results) > 1 and sorted_results[subject][0].marks[subject] == sorted_results[subject][-1].marks[subject]:
+        if len(results) > 1 and sorted_results[subject][0].marks[subject] ==\
+         sorted_results[subject][-1].marks[subject]:
             sorted_results.pop(subject)
     return sorted_results
 
