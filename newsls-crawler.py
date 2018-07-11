@@ -23,7 +23,7 @@ br = None
 subjects = {}
 net_errors = (URLError, mechanize.BrowserStateError, timeout)
 
-# So we can retry when the connection fails
+# So we can retry when the connection fails, as mechanize doesn't have that
 def retry(tries=4, delay=3, backoff=2):
     def deco_retry(f):
         @wraps(f)
